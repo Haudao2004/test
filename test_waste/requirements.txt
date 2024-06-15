@@ -1,0 +1,8 @@
+tensorflow-cpu
+numpy
+pillow
+streamlit
+openai
+python-dotenv
+keras
+json
