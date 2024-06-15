@@ -6,7 +6,8 @@ from dotenv import load_dotenv
 import os
 import openai
 import json
-import openai
+# from config import OPENAI_API_KEY
+# import openai
 # from flask import Flask, render_template
 
 # -*- coding: utf-8 -*-
@@ -15,25 +16,16 @@ load_dotenv()
 openai.api_key = os.getenv('OPENAI_API_KEY')
 
 
-# app = Flask(__name__)
+# def load_api_key(secrets_file="secrets.json"):
+#     with open(secrets_file) as f:
+#         secrets = json.load(f)
+#     return secrets["OPENAI_API_KEY"]
 
-# @app.route('/')
-# def index():
-#     return render_template('index.html')
-
-# if __name__ == '__main__':
-#     app.run(debug=True)
-
-def load_api_key(secrets_file="secrets.json"):
-    with open(secrets_file) as f:
-        secrets = json.load(f)
-    return secrets["OPENAI_API_KEY"]
-
-# Set secret API key
-# Typically, we'd use an environment variable (e.g., echo "export OPENAI_API_KEY='yourkey'" >> ~/.zshrc)
-# However, using "internalConsole" in launch.json requires setting it in the code for compatibility with Hebrew
-api_key = load_api_key()
-openai.api_key = api_key
+# # Set secret API key
+# # Typically, we'd use an environment variable (e.g., echo "export OPENAI_API_KEY='yourkey'" >> ~/.zshrc)
+# # However, using "internalConsole" in launch.json requires setting it in the code for compatibility with Hebrew
+# api_key = load_api_key()
+# openai.api_key = api_key
 
 
 def classify_waste(img):
@@ -41,7 +33,7 @@ def classify_waste(img):
     np.set_printoptions(suppress=True)
 
     model = load_model("keras_model.h5", compile=False)
-    model_name = "gpt2"  
+    # model_name = "gpt2"  
     # tokenizer = GPT2Tokenizer.from_pretrained(model_name)
     # model = GPT2LMHeadModel.from_pretrained(model_name)
     class_names = open("labels.txt", "r").readlines()
@@ -66,21 +58,61 @@ def classify_waste(img):
     confidence_score = prediction[0][index]
 
     return class_name, confidence_score
-
 def generate_carbon_footprint_info(label):
     label = label.split(' ')[1]
-    print(label)
-    response = openai.Completion.create(
-    model="text-davinci-003",
-    prompt="Lượng phát thải cacbon hoặc lượng khí thải cacbon gần đúng được tạo ra từ "+label+
-    "? Tôi chỉ cần một con số gần đúng để tạo ra nhận thức. Xây dựng trong 100 từ.\n",
-    temperature=0.7,
-    max_tokens=600,
-    top_p=1,
-    frequency_penalty=0,
-    presence_penalty=0
+    cache_file = "carbon_footprint_cache.json"
+    
+    # Kiểm tra xem kết quả đã được lưu trong cache chưa
+    if os.path.exists(cache_file):
+        with open(cache_file, "r") as f:
+            cache = json.load(f)
+        
+        if label in cache:
+            return cache[label]
+    
+    # Nếu kết quả không tồn tại trong cache, gửi yêu cầu API mới
+    response = openai.ChatCompletion.create(
+        model="gpt-3.5-turbo-instruct",
+        prompt="Lượng phát thải cacbon hoặc lượng khí thải cacbon gần đúng được tạo ra từ "+label+
+        "? Tôi chỉ cần một con số gần đúng để tạo ra nhận thức. Xây dựng trong 100 từ.\n",
+        temperature=0.7,
+        max_tokens=600,
+        top_p=1,
+        frequency_penalty=0,
+        presence_penalty=0
     )
-    return response['choices'][0]['text']
+    
+    result = response['choices'][0]['text']
+    
+    # Lưu kết quả vào cache
+    if os.path.exists(cache_file):
+        with open(cache_file, "r") as f:
+            cache = json.load(f)
+    else:
+        cache = {}
+    
+    cache[label] = result
+    
+    with open(cache_file, "w") as f:
+        json.dump(cache, f)
+    
+    return result
+
+
+# def generate_carbon_footprint_info(label):
+#     label = label.split(' ')[1]
+#     print(label)
+#     response = openai.ChatCompletion.create(
+#     model="gpt-3.5-turbo-instruct",
+#     prompt="Lượng phát thải cacbon hoặc lượng khí thải cacbon gần đúng được tạo ra từ "+label+
+#     "? Tôi chỉ cần một con số gần đúng để tạo ra nhận thức. Xây dựng trong 100 từ.\n",
+#     temperature=0.7,
+#     max_tokens=600,
+#     top_p=1,
+#     frequency_penalty=0,
+#     presence_penalty=0
+#     )
+#     return response['choices'][0]['text']
 
 
 st.set_page_config(layout='wide')
